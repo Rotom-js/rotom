@@ -1,0 +1,27 @@
+{
+  "name": "rotom",
+  "version": "1.0.0",
+  "description": "Competitive Pokémon Discord bot based on commands from Pokémon Showdown!",
+  "main": "./src/index.js",
+  "scripts": {
+    "start": "node .",
+    "test": "node ./test/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rotom-js/rotom.git"
+  },
+  "author": "Spindlyskit",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Rotom-js/rotom/issues"
+  },
+  "homepage": "https://github.com/Rotom-js/rotom#readme",
+  "dependencies": {
+    "common-tags": "^1.8.0",
+    "did-you-mean": "0.0.1",
+    "discord.js": "github:discordjs/discord.js",
+    "rotom-commando": "github:rotom-js/rotom-commando",
+    "sqlite": "^2.9.2"
+  }
+}
