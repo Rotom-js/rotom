@@ -8,6 +8,7 @@ module.exports = class SayCommand extends Command {
 			group: 'bot',
 			description: 'Make the bot say the text you provide.',
 			ownerOnly: true,
+			format: '<Text>',
 			args: [
 				{
 					key: 'str',

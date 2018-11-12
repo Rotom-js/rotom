@@ -6,7 +6,7 @@ module.exports = class LearnCommand extends Command {
 			name: 'learn',
 			memberName: 'learn',
 			description: 'Check if a Pokemon can learn a move.',
-			format: 'learn pokemon, move',
+			format: '<Pokemon>, <Move>',
 			clientPermissions: ['EMBED_LINKS'],
 			group: 'info',
 			args: [

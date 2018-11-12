@@ -13,14 +13,14 @@ module.exports = class NatureCommand extends Command {
 			args: [
 				{
 					key: 'plus',
-					name: 'boost',
+					name: 'boosted stat',
 					prompt: 'What stat is boosted by the nature?',
 					type: 'string',
 					validate: (stat) => stats.includes(stat.toLowerCase())
 				},
 				{
 					key: 'minus',
-					name: 'lower',
+					name: 'lowered stat',
 					prompt: 'What stat is lowered by the nature?',
 					type: 'string',
 					validate: (stat) => stats.includes(stat.toLowerCase())

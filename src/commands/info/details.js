@@ -7,7 +7,7 @@ module.exports = class DetailsCommand extends Command {
 			memberName: 'details',
 			aliases: ['dex', 'data', 'dt', 'pokemon', 'move', 'ability', 'item', 'weak'],
 			description: 'Get additional details on this pokemon/item/move/ability/nature.',
-			format: 'details [pokemon/item/move/ability]',
+			format: '<Pokemon/Item/Move/Ability>',
 			clientPermissions: ['EMBED_LINKS'],
 			group: 'info',
 			args: [
