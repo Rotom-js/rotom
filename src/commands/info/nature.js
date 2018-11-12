@@ -7,7 +7,7 @@ module.exports = class NatureCommand extends Command {
 			name: 'nature',
 			memberName: 'nature',
 			description: 'Find the nature given the boosted and hindered stat.',
-			format: 'nature <Boosted Stat> <Lowered Stat>',
+			format: '<Boosted Stat> <Lowered Stat>',
 			clientPermissions: ['EMBED_LINKS'],
 			group: 'info',
 			args: [
@@ -23,7 +23,6 @@ module.exports = class NatureCommand extends Command {
 					name: 'lower',
 					prompt: 'What stat is lowered by the nature?',
 					type: 'string',
-					default: '',
 					validate: (stat) => stats.includes(stat.toLowerCase())
 				}
 			]
