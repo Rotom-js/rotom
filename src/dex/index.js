@@ -100,82 +100,59 @@ module.exports = class Dex {
 		let lookupVal = this.getDataWhere(lookup);
 		if (lookupVal) return lookupVal;
 
-		lookupVal = this.getDataWhere(lookup, 3);
+		lookupVal = this.getDataWhere(lookup);
 		if (lookupVal) return lookupVal;
 
 		return false;
 	}
 
-	dictLookup(key, type, data, match = false) {
-		if (match) {
-			const m = new Matcher(Object.keys(this.aliases).join(' '));
-			m.setThreshold(match);
-			if (m.get(key)) {
-				key = this.toId(m.get(key));
-				match = false;
-			}
-		}
-		else if (this.aliases.hasOwnProperty(key)) {
-			key = this.toId(this.aliases[key]);
+	dictLookup(key, type, data) {
+		// Check if given key is an alias
+		// Aliases must be exact matches or unexpected matches can occur
+		const fetchedAlias = this.getAlias[key];
+		if (fetchedAlias) {
+			key = this.toId(fetchedAlias);
 		}
 
+		// Process mega pokemon
 		if (type === 'pokemon') {
 			if (key.startsWith('mega') && key !== 'meganium') key = key.substr(4) + 'mega';
 			if (key.startsWith('primal')) key = key.substr(4) + 'primal';
 		}
-		if (!match) {
-			if (data[key]) return [type, key, data[key], false];
-		}
-		else {
-			const m = new Matcher(Object.keys(data).join(' '));
-			m.setThreshold(match);
-			const matched = m.get(key);
-			if (data[matched]) return [type, matched, data[matched], true];
-		}
+
+		// Return value if exact match
+		if (data[key]) return [type, key, data[key], false];
+
+		// Setup matcher
+		const matcher = new Matcher(Object.keys(data).join(' '));
+		matcher.setThreshold(3);
+
+		const matched = matcher.get(key);
+		if (data[matched]) return [type, matched, data[matched], true];
 	}
 
-	getDataWhere(key, match = false, dataFilter = () => true) {
-		if (match) {
-			const m = new Matcher(Object.keys(this.aliases).join(' '));
-			m.setThreshold(match);
-			if (m.get(key)) {
-				key = this.toId(m.get(key));
-				match = false;
-			}
-		}
-		else if (this.aliases.hasOwnProperty(key)) {
-			key = this.toId(this.aliases[key]);
-		}
-
-		const lookupData = Object.keys(this.data).filter(dataFilter);
+	// Find data from any dict
+	getDataWhere(key, dataFilter = false) {
+		let lookupData;
+		if (dataFilter) lookupData = Object.keys(this.data).filter(dataFilter);
+		else lookupData = Object.keys(this.data);
 
 		for (const type of lookupData) {
 			const data = this.data[type];
-			if (type === 'pokemon') {
-				if (key.startsWith('mega') && key !== 'meganium') key = key.substr(4) + 'mega';
-				if (key.startsWith('primal')) key = key.substr(4) + 'primal';
-			}
-			if (!match) {
-				if (data[key]) return [type, key, data[key], false];
-			}
-			else {
-				const m = new Matcher(Object.keys(data).join(' '));
-				m.setThreshold(match);
-				const matched = m.get(key);
-				if (data[matched]) return [type, matched, data[matched], true];
-			}
+			const fetched = this.dictLookup(key, type, data);
+			if (fetched) return fetched;
 		}
 		return false;
 	}
 
-	// Data should be in format [type, key, val, ?matched]
+	// Data should be in format [type, key, val]
 	generateEmbed(data) {
 		return this.generators.hasOwnProperty(data[0]) ? this.generators[data[0]](data) : false;
 	}
 
 	/*
 	 * Embed generator functions
-	 * Each called by generateEmbed([type, key, val, ?matched])
+	 * Each called by generateEmbed([type, key, val])
 	 */
 	generatePokemonEmbed(data) {
 		const [, , pokemon] = data;
@@ -201,7 +178,7 @@ module.exports = class Dex {
 	}
 
 	generateItemEmbed(data) {
-		const [,, item] = data;
+		const [, , item] = data;
 		return new MessageEmbed()
 			.setAuthor(item.name, this.getItemImg(item))
 			.setDescription(item.desc ? item.desc : item.shortDesc)
@@ -210,7 +187,7 @@ module.exports = class Dex {
 	}
 
 	generateNatureEmbed(data) {
-		const [,, nature] = data;
+		const [, , nature] = data;
 		return new MessageEmbed()
 			.setAuthor(nature.name)
 			.setDescription(nature.hasOwnProperty('plus') ? `+${nature.plus.toUpperCase()} -${nature.minus.toUpperCase()}` : 'No effect')
@@ -429,24 +406,25 @@ module.exports = class Dex {
 		if (!this.learnsets.hasOwnProperty(pokemon)) return {};
 		const learnset = this.learnsets[pokemon].learnset;
 		if (!pk.hasOwnProperty('prevo')) return learnset;
-		const prevodata = this.dictLookup(this.toId(pk.prevo), 'pokemon', this.pokemon, false);
+		const prevodata = this.dictLookup(this.toId(pk.prevo), 'pokemon', this.pokemon);
 		return Object.assign(this.getPokemonLearnset(prevodata), learnset);
 	}
 
 	// Check if pokemon can learn move
-	canLearn(pokemon, movename, match = false) {
+	canLearn(pokemon, movename) {
 		let move = this.toId(movename);
-		const data = this.dictLookup(this.toId(pokemon), 'pokemon', this.pokemon, match ? 3 : false);
+		const data = this.dictLookup(this.toId(pokemon), 'pokemon', this.pokemon);
+		if (!data) return `\`${pokemon}\` is not a Pokemon!`;
 
-		const learnset = this.getPokemonLearnset(data, match);
-		if (Object.keys(learnset).length === 0) return `\`${pokemon}\` is not a Pokemon!`;
+		const learnset = this.getPokemonLearnset(data);
 
 		const pokemonname = data[2].species;
 
-		if (match) {
-			const m = new Matcher(Object.keys(this.moves).join(' '));
-			m.setThreshold(3);
-			const matched = m.get(move);
+		// If move isn't exact match, check if it is near before returning error message
+		if (!this.getMove(move)) {
+			const matcher = new Matcher(Object.keys(this.moves).join(' '));
+			matcher.setThreshold(3);
+			const matched = matcher.get(move);
 			if (this.moves[matched]) {
 				move = matched;
 				movename = this.moves[matched].name;
@@ -454,9 +432,6 @@ module.exports = class Dex {
 			else {
 				return `\`${movename}\` is not a move!`;
 			}
-		}
-		else if (this.moves[move]) {
-			return `\`${movename}\` is not a move!`;
 		}
 
 		if (learnset[move]) {
