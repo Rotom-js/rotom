@@ -28,6 +28,6 @@ module.exports = class LearnCommand extends Command {
 
 	run(msg, { pokemon, move }) {
 		const { dex } = msg.client;
-		msg.say(dex.canLearn(pokemon, move, true));
+		msg.say(dex.canLearn(pokemon, move));
 	}
 };
