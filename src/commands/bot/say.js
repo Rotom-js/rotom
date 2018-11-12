@@ -1,4 +1,4 @@
-const { Command } = require('rotom-commando');
+const { Command } = require('discord.js-commando');
 
 module.exports = class SayCommand extends Command {
 	constructor(client) {
@@ -19,6 +19,8 @@ module.exports = class SayCommand extends Command {
 	}
 
 	run(msg, { str }) {
-		msg.say(str);
+		msg.say(str).then(() => {
+			console.log(`${msg.author.tag} used say command`);
+		});
 	}
 };

@@ -3,6 +3,7 @@ const Matcher = require('did-you-mean');
 const { MessageEmbed } = require('discord.js');
 const { stripIndents } = require('common-tags');
 
+// Used for calculating the color the embed should be based on Pokemon color
 const hexes = {
 	Red: '#ff0000',
 	Blue: '#4169E1',
@@ -14,47 +15,83 @@ const hexes = {
 	Gray: '#808080',
 	White: '#ffffff',
 	Pink: '#ffc0cb',
+	default: '#ff0000'
 };
 
+const sourceNames = {
+	E: 'egg',
+	D: 'dream world',
+	S: 'event',
+	L: 'level ',
+	M: 'TM/HM',
+	T: 'tutor',
+	X: 'egg, traded back',
+	Y: 'event, traded back',
+	V: 'virtual console transfer from gen 1-2'
+};
+
+/*
+ * Converts Pokemon Showdown data files into discord embeds or other formats needed for commands
+ */
 module.exports = class Dex {
 	constructor(datadir) {
 		this.datadir = datadir;
 
-		this.abilities	= require(path.join(datadir, './abilities.js')).BattleAbilities;
-		this.aliases	= require(path.join(datadir, './aliases.js')).BattleAliases;
-		this.items		= require(path.join(datadir, './items.js')).BattleItems;
-		this.learnsets	= require(path.join(datadir, './learnsets.js')).BattleLearnsets;
-		this.moves		= require(path.join(datadir, './moves.js')).BattleMovedex;
-		this.pokemon	= require(path.join(datadir, './pokedex.js')).BattlePokedex;
-		this.typechart	= require(path.join(datadir, './typechart.js')).BattleTypeChart;
+		this.abilities = require(path.join(datadir, './abilities.js')).BattleAbilities;
+		this.aliases = require(path.join(datadir, './aliases.js')).BattleAliases;
+		this.items = require(path.join(datadir, './items.js')).BattleItems;
+		this.learnsets = require(path.join(datadir, './learnsets.js')).BattleLearnsets;
+		this.moves = require(path.join(datadir, './moves.js')).BattleMovedex;
+		this.pokemon = require(path.join(datadir, './pokedex.js')).BattlePokedex;
+		this.typechart = require(path.join(datadir, './typechart.js')).BattleTypeChart;
+		this.natures = require(path.join(datadir, './natures.js')).BattleNatures;
+
+		this.generators = {
+			'pokemon': (data) => this.generatePokemonEmbed(data),
+			'item': (data) => this.generateItemEmbed(data),
+			'nature': (data) => this.generateNatureEmbed(data),
+			'move': (data) => this.generateMoveEmbed(data),
+			'ability': (data) => this.generateAbilityEmbed(data)
+		};
 
 		this.data = {
-			'pokemon'	: this.pokemon,
-			'item'		: this.items,
-			'move'		: this.moves,
-			'ability'	: this.abilities,
+			'pokemon': this.pokemon,
+			'item': this.items,
+			'nature': this.natures,
+			'move': this.moves,
+			'ability': this.abilities,
 		};
+
+		this.stats = ['atk', 'def', 'spa', 'spd', 'spe'];
 	}
 
-	// Getters for each data array
+	/*
+	 * Getters for each data array
+	 */
 	getAbility(Ability) {
 		return this.abilities[Ability];
 	}
+
 	getAlias(Alias) {
 		return this.aliases[Alias];
 	}
+
 	getItem(Item) {
 		return this.items[Item];
 	}
+
 	getLearnset(Learnset) {
 		return this.learnsets[Learnset];
 	}
+
 	getMove(Move) {
 		return this.moves[Move];
 	}
+
 	getPokemon(Pokemon) {
 		return this.pokemon[Pokemon];
 	}
+
 	getTypeChart(TypeChart) {
 		return this.typechart[TypeChart];
 	}
@@ -69,7 +106,7 @@ module.exports = class Dex {
 		return false;
 	}
 
-	getDataWhere(key, match = false) {
+	dictLookup(key, type, data, match = false) {
 		if (match) {
 			const m = new Matcher(Object.keys(this.aliases).join(' '));
 			m.setThreshold(match);
@@ -78,8 +115,42 @@ module.exports = class Dex {
 				match = false;
 			}
 		}
-		else if (this.aliases.hasOwnProperty(key)) { key = this.toId(this.aliases[key]); }
-		for (const [type, data] of Object.entries(this.data)) {
+		else if (this.aliases.hasOwnProperty(key)) {
+			key = this.toId(this.aliases[key]);
+		}
+
+		if (type === 'pokemon') {
+			if (key.startsWith('mega') && key !== 'meganium') key = key.substr(4) + 'mega';
+			if (key.startsWith('primal')) key = key.substr(4) + 'primal';
+		}
+		if (!match) {
+			if (data[key]) return [type, key, data[key], false];
+		}
+		else {
+			const m = new Matcher(Object.keys(data).join(' '));
+			m.setThreshold(match);
+			const matched = m.get(key);
+			if (data[matched]) return [type, matched, data[matched], true];
+		}
+	}
+
+	getDataWhere(key, match = false, dataFilter = () => true) {
+		if (match) {
+			const m = new Matcher(Object.keys(this.aliases).join(' '));
+			m.setThreshold(match);
+			if (m.get(key)) {
+				key = this.toId(m.get(key));
+				match = false;
+			}
+		}
+		else if (this.aliases.hasOwnProperty(key)) {
+			key = this.toId(this.aliases[key]);
+		}
+
+		const lookupData = Object.keys(this.data).filter(dataFilter);
+
+		for (const type of lookupData) {
+			const data = this.data[type];
 			if (type === 'pokemon') {
 				if (key.startsWith('mega') && key !== 'meganium') key = key.substr(4) + 'mega';
 				if (key.startsWith('primal')) key = key.substr(4) + 'primal';
@@ -94,27 +165,21 @@ module.exports = class Dex {
 				if (data[matched]) return [type, matched, data[matched], true];
 			}
 		}
-
 		return false;
 	}
 
 	// Data should be in format [type, key, val, ?matched]
 	generateEmbed(data) {
-		switch (data[0]) {
-		case 'pokemon':
-			return this.generatePokemonEmbed(data);
-		case 'item':
-			return this.generateItemEmbed(data);
-		case 'move':
-			return this.generateMoveEmbed(data);
-		case 'ability':
-			return this.generateAbilityEmbed(data);
-		}
+		return this.generators.hasOwnProperty(data[0]) ? this.generators[data[0]](data) : false;
 	}
 
+	/*
+	 * Embed generator functions
+	 * Each called by generateEmbed([type, key, val, ?matched])
+	 */
 	generatePokemonEmbed(data) {
-		const [,, pokemon] = data;
-		const weakchart = Object.entries(this.weak(pokemon));
+		const [, , pokemon] = data;
+		const weakchart = Object.entries(this.weak(pokemon.types));
 
 		return new MessageEmbed()
 			.setAuthor(`No. ${this.getNumPretty(pokemon.num)}: ${pokemon.species}`, this.getPokemonIcon(pokemon))
@@ -134,20 +199,33 @@ module.exports = class Dex {
 			.addField('Weakness', weakchart.filter(e => e[1] > 1).map(e => `${e[0]} - ${e[1]}x`).join('\n'), true)
 			.addField('Resistance', weakchart.filter(e => e[1] < 1).map(e => `${e[0]} - ${e[1]}x`).join('\n'), true);
 	}
+
 	generateItemEmbed(data) {
 		const [,, item] = data;
 		return new MessageEmbed()
 			.setAuthor(item.name, this.getItemImg(item))
 			.setDescription(item.desc ? item.desc : item.shortDesc)
+			.setColor(hexes.default)
 			.setThumbnail(this.getItemImg(item));
 	}
+
+	generateNatureEmbed(data) {
+		const [,, nature] = data;
+		return new MessageEmbed()
+			.setAuthor(nature.name)
+			.setDescription(nature.hasOwnProperty('plus') ? `+${nature.plus.toUpperCase()} -${nature.minus.toUpperCase()}` : 'No effect')
+			.setColor(hexes.default);
+	}
+
+	// Function is longer than the others due to move flags
 	generateMoveEmbed(data) {
-		const [,, move] = data;
+		const [, , move] = data;
 		const details = {
 			'Priority': move.priority,
 			'Gen': move.gen || 'CAP',
 		};
 
+		// Move flag handling from Pokmemon Showdown
 		if (move.secondary || move.secondaries) details['Secondary effect'] = '';
 		if (move.flags['contact']) details['Contact'] = '';
 		if (move.flags['sound']) details['Sound'] = '';
@@ -178,7 +256,15 @@ module.exports = class Dex {
 		else if (move.zMoveBoost) {
 			details['Z-Effect'] = '';
 			const boost = move.zMoveBoost;
-			const stats = { atk: 'Attack', def: 'Defense', spa: 'Sp. Atk', spd: 'Sp. Def', spe: 'Speed', accuracy: 'Accuracy', evasion: 'Evasiveness' };
+			const stats = {
+				atk: 'Attack',
+				def: 'Defense',
+				spa: 'Sp. Atk',
+				spd: 'Sp. Def',
+				spe: 'Speed',
+				accuracy: 'Accuracy',
+				evasion: 'Evasiveness'
+			};
 			for (const i in boost) {
 				details['Z-Effect'] += ' ' + stats[i] + ' +' + boost[i];
 			}
@@ -206,9 +292,8 @@ module.exports = class Dex {
 			details['https://pokemonshowdown.com/dex/moves/mirrormove'] = '';
 		}
 
-		const { dtext, ptext } = this.dtextrender(details);
-
-		console.log(dtext);
+		// Change the details array into text
+		const { detailstext, propstext } = this.dtextrender(details);
 
 		return new MessageEmbed()
 			.setAuthor(move.name)
@@ -218,16 +303,20 @@ module.exports = class Dex {
         **Type:** ${move.type}
         **Category:** ${move.category}
         **Base Power:** ${move.hasOwnProperty('basePower') ? move.basePower : 'N/A'}
-        ${dtext}`, true)
-			.addField('Properties', ptext ? ptext : 'No special properties', true);
+		${detailstext}`, true)
+			.setColor(hexes.default)
+			.addField('Properties', propstext ? propstext : 'No special properties', true);
 	}
+
 	generateAbilityEmbed(data) {
-		const [,, ability] = data;
+		const [, , ability] = data;
 		return new MessageEmbed()
 			.setAuthor(ability.name)
+			.setColor(hexes.default)
 			.setDescription(ability.desc ? ability.desc : ability.shortDesc);
 	}
 
+	// Gets the small icon URL from serebii for use as author in embed
 	getPokemonIcon(pk) {
 		let url = 'https://www.serebii.net/pokedex-sm/icon/';
 		url += this.getNumPretty(pk.num);
@@ -241,14 +330,16 @@ module.exports = class Dex {
 		return url;
 	}
 
+	// Gets large animated image of Pokemon for use as main image in embed
 	getPokemonAni(pk) {
 		let url = 'http://play.pokemonshowdown.com/sprites/xyani/';
-		url += this.toId(pk.species);
+		url += this.toId(pk.baseSpecies ? pk.baseSpecies : pk.species);
 		if (pk.formeLetter) url += '-' + this.toId(pk.forme);
 		url += '.gif';
 		return url;
 	}
 
+	// Gets large image of item for main image in embed
 	getItemImg(item) {
 		let url = 'https://www.serebii.net/itemdex/sprites/pgl/';
 		url += this.toId(item.name);
@@ -256,6 +347,7 @@ module.exports = class Dex {
 		return url;
 	}
 
+	// Makes any number three digits by padding with zeros for dex numbers
 	getNumPretty(num) {
 		num = num.toString();
 		while (num.length < 3) {
@@ -264,10 +356,10 @@ module.exports = class Dex {
 		return num;
 	}
 
-	weak(pokemon) {
+	// Calculates a Pokemons weaknesses
+	weak(inputtypes) {
 		const types = Object.keys(this.typechart);
 		const weakChart = {
-			pokemon: pokemon.species,
 			'Bug': 1,
 			'Dark': 1,
 			'Dragon': 1,
@@ -288,8 +380,8 @@ module.exports = class Dex {
 			'Water': 1,
 		};
 
-		for (let i = 0; i < pokemon.types.length; i++) {
-			const current = this.typechart[pokemon.types[i]];
+		for (let i = 0; i < inputtypes.length; i++) {
+			const current = this.typechart[inputtypes[i]];
 			for (let x = 0; x < types.length; x++) {
 				const dmg = weakChart[types[x]];
 				switch (current.damageTaken[types[x]]) {
@@ -327,7 +419,59 @@ module.exports = class Dex {
 
 		}
 
-		return { dtext: dtext, ptext: ptext };
+		return { detailstext: dtext, propstext: ptext };
+	}
+
+	getPokemonLearnset(data) {
+		const pokemon = data[1];
+		const pk = data[2];
+
+		if (!this.learnsets.hasOwnProperty(pokemon)) return {};
+		const learnset = this.learnsets[pokemon].learnset;
+		if (!pk.hasOwnProperty('prevo')) return learnset;
+		const prevodata = this.dictLookup(this.toId(pk.prevo), 'pokemon', this.pokemon, false);
+		return Object.assign(this.getPokemonLearnset(prevodata), learnset);
+	}
+
+	// Check if pokemon can learn move
+	canLearn(pokemon, movename, match = false) {
+		let move = this.toId(movename);
+		const data = this.dictLookup(this.toId(pokemon), 'pokemon', this.pokemon, match ? 3 : false);
+
+		const learnset = this.getPokemonLearnset(data, match);
+		if (Object.keys(learnset).length === 0) return `\`${pokemon}\` is not a Pokemon!`;
+
+		const pokemonname = data[2].species;
+
+		if (match) {
+			const m = new Matcher(Object.keys(this.moves).join(' '));
+			m.setThreshold(3);
+			const matched = m.get(move);
+			if (this.moves[matched]) {
+				move = matched;
+				movename = this.moves[matched].name;
+			}
+			else {
+				return `\`${movename}\` is not a move!`;
+			}
+		}
+		else if (this.moves[move]) {
+			return `\`${movename}\` is not a move!`;
+		}
+
+		if (learnset[move]) {
+			const methodText = learnset[move].map(e => `Generation ${e[0]} ${sourceNames[e[1]]} ${e.substr(2)}`);
+
+			return new MessageEmbed()
+				.setColor(hexes.Green)
+				.setTitle(`${pokemonname} can learn ${movename}!`)
+				.setDescription(methodText.join('\n'));
+		}
+		else {
+			return new MessageEmbed()
+				.setColor(hexes.Red)
+				.setTitle(`${pokemonname} cannot learn ${movename}!`);
+		}
 	}
 
 	// Copied from Pokémon Showdown sim/dex-data.js because every key in the data files is an id.

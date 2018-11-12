@@ -1,11 +1,11 @@
-const { Command } = require('rotom-commando');
+const { Command } = require('discord.js-commando');
 
 module.exports = class DetailsCommand extends Command {
 	constructor(client) {
 		super(client, {
 			name: 'details',
 			memberName: 'details',
-			aliases: ['dex', 'data', 'dt', 'pokemon', 'move', 'ability', 'item'],
+			aliases: ['dex', 'data', 'dt', 'pokemon', 'move', 'ability', 'item', 'weak'],
 			description: 'Get additional details on this pokemon/item/move/ability/nature.',
 			format: 'details [pokemon/item/move/ability]',
 			clientPermissions: ['EMBED_LINKS'],

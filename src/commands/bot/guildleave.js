@@ -1,4 +1,4 @@
-const { Command } = require('rotom-commando');
+const { Command } = require('discord.js-commando');
 
 module.exports = class GuildLeaveCommand extends Command {
 	constructor(client) {

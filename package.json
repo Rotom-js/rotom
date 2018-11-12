@@ -21,7 +21,7 @@
     "common-tags": "^1.8.0",
     "did-you-mean": "0.0.1",
     "discord.js": "github:discordjs/discord.js",
-    "rotom-commando": "github:rotom-js/rotom-commando",
+    "discord.js-commando": "github:rotom-js/rotom-commando",
     "sqlite": "^2.9.2"
   }
 }

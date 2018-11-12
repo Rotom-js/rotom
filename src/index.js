@@ -1,4 +1,4 @@
-const commando = require('rotom-commando');
+const commando = require('discord.js-commando');
 const path = require('path');
 const { oneLine } = require('common-tags');
 const config = require('./config.json');

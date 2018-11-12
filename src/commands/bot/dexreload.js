@@ -1,4 +1,4 @@
-const { Command } = require('rotom-commando');
+const { Command } = require('discord.js-commando');
 const path = require('path');
 
 module.exports = class DexReloadCommand extends Command {
